@@ -17,13 +17,19 @@ export interface MarketplaceItem {
 }
 
 export interface MarketplaceListing {
-  id: number;
   typeId: number;
-  item: MarketplaceItem;
-  buyPriceSoul?: string;
-  buyPriceGods?: string;
-  rentTiers?: RentTier[];
-  isAvailable: boolean;
+  name: string;
+  description: string;
+  image: string;
+  rarity: string;
+  buyPriceSoul: string;
+  buyPriceGods: string;
+  listed: boolean;
+  attributes: Array<{
+    trait_type: string;
+    value: string | number;
+    display_type?: string;
+  }>;
 }
 
 export interface RentTier {
@@ -52,10 +58,45 @@ export interface RentResponse {
   message?: string;
 }
 
+// typeIds registered on-chain but not yet active in the game UI.
+// Extend this set when adding placeholders — Unity and players will never see these.
+const HIDDEN_TYPE_IDS = new Set([1, 2]);
+
 export async function getListings(): Promise<ListingsResponse> {
-  return apiRequest<ListingsResponse>("/marketplace/listings", {
+  const res = await apiRequest<unknown>("/marketplace/listings", {
     public: true,
   });
+
+  const raw = Array.isArray(res) ? res : ((res as any).listings ?? []);
+  const filtered = raw.filter((l: any) => !HIDDEN_TYPE_IDS.has(l.item?.typeId));
+
+  const listings = await Promise.all(
+    filtered.map(async (l: any) => {
+      let meta: any = {};
+      try {
+        const r = await fetch(l.item.metadataURI);
+        meta = await r.json();
+      } catch {
+        // metadata fetch failed — use fallback values
+      }
+
+      return {
+        typeId: l.item.typeId,
+        name: l.item.name,
+        description: meta.description ?? "",
+        image: meta.image ?? "",
+        rarity:
+          meta.attributes?.find((a: any) => a.trait_type === "Rarity")?.value ??
+          "",
+        buyPriceSoul: l.buyPriceSoul,
+        buyPriceGods: l.buyPriceGods,
+        listed: l.listed,
+        attributes: meta.attributes ?? [],
+      };
+    }),
+  );
+
+  return { listings };
 }
 
 export async function buyItem(

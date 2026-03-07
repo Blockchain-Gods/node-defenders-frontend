@@ -11,13 +11,18 @@
  * All game UI (menus, marketplace, leaderboard) is Unity-rendered.
  * This page has no screen state machine — Unity owns the UI state.
  */
+"use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import UnityGamePlayer from "@/components/UnityGamePlayer";
 import DevConsole from "@/components/DevConsole";
 import { useUnityBridge } from "@/lib/hooks/useUnityBridge";
+import { devConsole } from "@/lib/devConsole";
 
 export default function GamePage() {
+  useEffect(() => {
+    devConsole.init();
+  }, []);
   const { onUnityInstanceReady, startGameSession, auth } = useUnityBridge();
 
   /**
