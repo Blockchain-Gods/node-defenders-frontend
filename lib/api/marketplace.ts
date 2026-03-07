@@ -67,36 +67,13 @@ export async function getListings(): Promise<ListingsResponse> {
     public: true,
   });
 
-  const raw = Array.isArray(res) ? res : ((res as any).listings ?? []);
-  const filtered = raw.filter((l: any) => !HIDDEN_TYPE_IDS.has(l.item?.typeId));
+  const listings = Array.isArray(res)
+    ? res
+    : ((res as ListingsResponse).listings ?? []);
 
-  const listings = await Promise.all(
-    filtered.map(async (l: any) => {
-      let meta: any = {};
-      try {
-        const r = await fetch(l.item.metadataURI);
-        meta = await r.json();
-      } catch {
-        // metadata fetch failed — use fallback values
-      }
-
-      return {
-        typeId: l.item.typeId,
-        name: l.item.name,
-        description: meta.description ?? "",
-        image: meta.image ?? "",
-        rarity:
-          meta.attributes?.find((a: any) => a.trait_type === "Rarity")?.value ??
-          "",
-        buyPriceSoul: l.buyPriceSoul,
-        buyPriceGods: l.buyPriceGods,
-        listed: l.listed,
-        attributes: meta.attributes ?? [],
-      };
-    }),
-  );
-
-  return { listings };
+  return {
+    listings: listings.filter((l) => !HIDDEN_TYPE_IDS.has(l.typeId)),
+  };
 }
 
 export async function buyItem(

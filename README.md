@@ -2,7 +2,7 @@
 
 Next.js frontend shell for [Node Defenders](https://defenders.blockchaingods.io) — the first title in the [Blockchain Gods](https://blockchaingods.io) Web3 gaming universe.
 
-This repo is the **public-facing web layer**. It authenticates players, manages the game session lifecycle, and communicates with the Unity WebGL build via a typed JS bridge. The Unity game itself (artwork, C# code, WebGL build) lives in a separate private repo and is served independently — this repo is designed to run with or without Unity mounted.
+This repo is the **public-facing web layer**. It authenticates players, manages the game session lifecycle, and communicates with the Unity WebGL build via a typed JS bridge. The Unity game itself (artwork, C# code, WebGL build) lives in a separate private repo and is served from Cloudflare R2 — this repo is designed to run with or without Unity mounted.
 
 ---
 
@@ -10,15 +10,16 @@ This repo is the **public-facing web layer**. It authenticates players, manages 
 
 **This repo handles:**
 
-- Guest and wallet auth (custodial via `/auth/guest`, social via Web3Auth, self-custody via SIWE)
+- Guest auth — every player gets a custodial wallet silently on first visit, no wallet connection required
 - JWT lifecycle (storage, expiry checks, renewal)
 - API communication with `node-defenders-api` (sessions, SOUL balance, leaderboard, marketplace)
+- Marketplace metadata resolution — fetches and merges R2 JSON before sending to Unity
 - Unity ↔ JS bridge (typed event contract for game ↔ backend communication)
 - Beta dev console and API harness for testing without Unity
 
 **This repo does not contain:**
 
-- The Unity WebGL build — served from a separate private repo / Cloudflare R2
+- The Unity WebGL build — served from Cloudflare R2 via `cdn.blockchaingods.io`
 - Game artwork, C# source, or Unity project files
 - Private keys, wallet signing logic — handled by `node-defenders-signer`
 
@@ -30,22 +31,23 @@ This repo is the **public-facing web layer**. It authenticates players, manages 
 Browser
   │
   │  Next.js shell (this repo)
-  ├── Auth: guest / Web3Auth / SIWE → JWT
+  ├── Auth: guest → JWT (custodial wallet provisioned silently)
+  ├── Marketplace: fetch listings → resolve R2 metadata → send to Unity
   ├── Bridge: postMessage ↔ CustomEvent (Unity ↔ JS)
   ├── API client: JWT-authenticated fetch → node-defenders-api
   │
-  │  Unity WebGL (separate private repo, served externally)
-  └── Mounted at /unity-build — loaded by UnityGamePlayer.tsx
+  │  Unity WebGL (separate private repo)
+  └── Served from cdn.blockchaingods.io — loaded by UnityGamePlayer.tsx
 ```
 
 ### Unity integration
 
-The Unity build is **not bundled here**. `UnityGamePlayer.tsx` loads the build from `/unity-build` at runtime — a path you point at either:
+The Unity build is **not bundled here**. `UnityGamePlayer.tsx` loads the build from `/unity-build` at runtime, pointed at:
 
+- `cdn.blockchaingods.io/unity-build/` in production (Cloudflare R2)
 - A local symlink / copy of the Unity WebGL output during development
-- A Cloudflare R2 bucket or CDN path in production
 
-The bridge contract (what Unity sends, what JS sends back) is defined in `lib/bridge/types.ts`.
+The bridge contract (what Unity sends, what JS sends back) is defined in `lib/bridge/types.ts`. Unity receives display-ready data — the FE resolves all metadata before sending anything to Unity.
 
 ---
 
@@ -55,7 +57,6 @@ The bridge contract (what Unity sends, what JS sends back) is defined in `lib/br
 - **Language**: TypeScript
 - **State**: Zustand with localStorage persistence
 - **Styling**: Tailwind CSS
-- **Auth**: Web3Auth (custodial social login), RainbowKit + SIWE (self-custody)
 - **Hosting**: Cloudflare Pages
 
 ---
@@ -75,17 +76,17 @@ components/
 lib/
   api/
     client.ts           # Base fetch wrapper, JWT injection, 401 handling
-    auth.ts             # POST /auth/guest, POST /auth/login
+    auth.ts             # POST /auth/guest
     session.ts          # POST /sessions/start|earn|end
     soul.ts             # GET /soul/balance
     leaderboard.ts      # GET + POST /leaderboard
-    marketplace.ts      # GET /marketplace/listings, POST buy/rent
+    marketplace.ts      # GET listings (with R2 metadata resolution), POST buy/rent
   bridge/
     types.ts            # Typed Unity ↔ JS event contract
     receiver.ts         # postMessage listener → typed CustomEvents
     sender.ts           # SendMessage wrapper → Unity
   hooks/
-    useAuth.ts          # Auth init, token renewal, wallet upgrade
+    useAuth.ts          # Auth init, token renewal
     useGameSession.ts   # Session lifecycle, beforeunload cleanup
     useMarketplace.ts   # Listings, buy, rent
     useUnityBridge.ts   # Central wiring: bridge → hooks → bridge
@@ -130,7 +131,7 @@ npm run dev
 
 ### Unity build (optional)
 
-To run with the actual game, place or symlink the Unity WebGL output at `public/unity-build/`. The expected structure:
+To run with the actual game, place or symlink the Unity WebGL output at `public/unity-build/`. Expected structure:
 
 ```
 public/
@@ -153,16 +154,37 @@ Without this, the shell loads but the Unity canvas stays blank. All API flows st
 App mount
   → check localStorage (nd_auth) for stored JWT
   → JWT valid + > 2 days remaining → use it
-  → JWT expiring or absent → POST /auth/guest → store 30-day JWT
+  → JWT expiring or absent → POST /auth/guest
+      → API creates player record + custodial wallet (via signer)
+      → returns 30-day JWT + wallet address
+  → store jwt, playerId, wallet
   → Unity instance ready → send OnAuthReady { wallet, soulBalance, playerId }
-
-Player optionally connects wallet
-  → Web3Auth social login → POST /auth/login { type: "web3auth", idToken }
-  → SIWE self-custody     → POST /auth/login { type: "siwe", message, signature }
-  → New JWT overwrites guest JWT (progress migration: post-beta)
 ```
 
-Guest sessions persist for 30 days. Players can upgrade to a full account at any time without losing their session.
+No wallet connection required. Every player gets a custodial wallet silently. Wallet upgrade path (Web3Auth, SIWE) is implemented in `useAuth.ts` but not exposed in the UI for the current release.
+
+---
+
+## Asset CDN
+
+Upgrade metadata and images are served from Cloudflare R2 via `cdn.blockchaingods.io`.
+
+```
+cdn.blockchaingods.io/
+  upgrades/
+    basic-rounds.json       # ERC-721 metadata
+    basic-rounds.png
+    solar-lance.json
+    solar-lance.png
+    arc-striker.json
+    arc-striker.png
+```
+
+**Metadata resolution happens in the FE**, not in Unity. `getListings()` in `lib/api/marketplace.ts` fetches each item's `metadataURI` from R2, merges the result with the listing data, and sends Unity a flat display-ready object. Unity never sees raw `metadataURI` strings.
+
+**Hidden type IDs:** typeIds 1 and 2 are placeholder seeds registered on-chain during initial contract deployment. They are filtered out client-side in `marketplace.ts` via `HIDDEN_TYPE_IDS` and are never sent to Unity or shown to players.
+
+**Default item:** Basic Rounds (typeId 3) is granted to every new player automatically by the API on account creation. It appears in the marketplace as "OWNED".
 
 ---
 
@@ -172,21 +194,23 @@ All Unity ↔ JS communication is typed in `lib/bridge/types.ts`.
 
 ### Unity → JS (postMessage from GameInterop.jslib)
 
-| Event                 | Payload                            | Triggers                                |
-| --------------------- | ---------------------------------- | --------------------------------------- |
-| `gameplay_submission` | analytics object                   | `sessions/end`                          |
-| `marketplace_open`    | `{ soulBalance }`                  | fetch listings → `OnMarketplaceData`    |
-| `marketplace_buy`     | `{ typeId, paymentToken }`         | `marketplace/buy` → `OnPurchaseResult`  |
-| `marketplace_rent`    | `{ typeId, tierId, paymentToken }` | `marketplace/rent` → `OnPurchaseResult` |
+| Event                 | Payload                            | Triggers                                       |
+| --------------------- | ---------------------------------- | ---------------------------------------------- |
+| `gameplay_submission` | analytics object                   | `sessions/end`                                 |
+| `marketplace_open`    | `{ soulBalance }`                  | fetch + resolve listings → `OnMarketplaceData` |
+| `marketplace_buy`     | `{ typeId, paymentToken }`         | `marketplace/buy` → `OnPurchaseResult`         |
+| `marketplace_rent`    | `{ typeId, tierId, paymentToken }` | `marketplace/rent` → `OnPurchaseResult`        |
 
 ### JS → Unity (SendMessage to GameManager)
 
-| Method              | Payload                             | When sent                        |
-| ------------------- | ----------------------------------- | -------------------------------- |
-| `OnAuthReady`       | `{ wallet, soulBalance, playerId }` | Auth complete, after session end |
-| `OnSessionStarted`  | `{ sessionId }`                     | After `sessions/start`           |
-| `OnMarketplaceData` | `{ listings[] }`                    | Response to `marketplace_open`   |
-| `OnPurchaseResult`  | `{ success, error?, txHash? }`      | After buy/rent completes         |
+| Method              | Payload                             | When sent                                         |
+| ------------------- | ----------------------------------- | ------------------------------------------------- |
+| `OnAuthReady`       | `{ wallet, soulBalance, playerId }` | Auth complete, after session end                  |
+| `OnSessionStarted`  | `{ sessionId }`                     | After `sessions/start`                            |
+| `OnMarketplaceData` | `{ listings[] }`                    | Listings resolved, response to `marketplace_open` |
+| `OnPurchaseResult`  | `{ success, error?, txHash? }`      | After buy/rent completes                          |
+
+`OnMarketplaceData` listings are pre-resolved — each item includes `name`, `description`, `image`, `rarity`, `buyPriceSoul`, `buyPriceGods`, and `attributes` ready for Unity to render directly.
 
 ---
 
@@ -209,7 +233,7 @@ A full test UI for every API endpoint — no Unity required.
 - Session: start, earn, end with editable amounts
 - Soul: balance fetch
 - Leaderboard: fetch + mock submit
-- Marketplace: listings, buy, rent with token selector
+- Marketplace: listings (with metadata resolved), buy, rent with token selector
 - Bridge mock: fire Unity events from buttons, see them arrive in real time
 
 Blocked in production (`NEXT_PUBLIC_DEV_MODE !== "true"` redirects to `/`).
