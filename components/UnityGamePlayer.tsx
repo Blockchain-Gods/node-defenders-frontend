@@ -81,9 +81,9 @@ export default function UnityGamePlayer({
         if (!mounted || !canvasRef.current) return;
 
         const config: UnityBuildConfig = {
-          dataUrl: `${buildPath}/Build/build.data.unityweb`,
-          frameworkUrl: `${buildPath}/Build/build.framework.js.unityweb`,
-          codeUrl: `${buildPath}/Build/build.wasm.unityweb`,
+          dataUrl: `${buildPath}/Build/build.data`,
+          frameworkUrl: `${buildPath}/Build/build.framework.js`,
+          codeUrl: `${buildPath}/Build/build.wasm`,
           streamingAssetsUrl: "StreamingAssets",
           companyName: "Blockchain Gods",
           productName: "Node Defenders",

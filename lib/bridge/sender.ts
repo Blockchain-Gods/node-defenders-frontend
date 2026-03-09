@@ -33,19 +33,19 @@ function send(
   payload: unknown,
 ) {
   if (!instance) {
-    devConsole.log("ERROR", `BRIDGE_OUT:${method}`, payload, {
+    console.log("ERROR", `BRIDGE_OUT:${method}`, payload, {
       error: "Unity instance not ready",
     });
     return;
   }
 
   const json = JSON.stringify(payload);
-  devConsole.log("BRIDGE_OUT", method, payload);
+  console.log("BRIDGE_OUT", method, payload);
 
   try {
     instance.SendMessage(GAME_OBJECT, method, json);
   } catch (err) {
-    devConsole.log("ERROR", `BRIDGE_OUT:${method}`, payload, {
+    console.log("ERROR", `BRIDGE_OUT:${method}`, payload, {
       error: err instanceof Error ? err.message : "SendMessage failed",
     });
   }
@@ -77,4 +77,30 @@ export function sendPurchaseResult(
   payload: OnPurchaseResultPayload,
 ) {
   send(instance, "OnPurchaseResult", payload);
+}
+
+/**
+ * Generic SendMessage for dynamic game object / method targets.
+ * Used for responses where Unity passes its own GO name (e.g. DataParser).
+ */
+export function sendRawMessage(
+  instance: UnityInstance | null,
+  gameObject: string,
+  method: string,
+  json: string,
+) {
+  if (!instance) {
+    devConsole.log("ERROR", `BRIDGE_OUT:${method}`, null, {
+      error: "Unity instance not ready",
+    });
+    return;
+  }
+  devConsole.log("BRIDGE_OUT", `${gameObject}.${method}`, json);
+  try {
+    instance.SendMessage(gameObject, method, json);
+  } catch (err) {
+    devConsole.log("ERROR", `BRIDGE_OUT:${method}`, null, {
+      error: err instanceof Error ? err.message : "SendMessage failed",
+    });
+  }
 }

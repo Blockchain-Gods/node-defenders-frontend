@@ -58,6 +58,7 @@ export async function earnSoul(
   sessionId: string,
   amount: string,
 ): Promise<SessionEarnResponse> {
+  console.log(`POST to sessions/earn, ID: ${sessionId}, amount: ${amount}`);
   return apiRequest<SessionEarnResponse>("/sessions/earn", {
     method: "POST",
     body: { sessionId, amount },
@@ -67,6 +68,7 @@ export async function earnSoul(
 export async function endSession(
   sessionId: string,
 ): Promise<SessionEndResponse> {
+  console.log(`POST to sessions/end, ID: ${sessionId}`);
   return apiRequest<SessionEndResponse>("/sessions/end", {
     method: "POST",
     body: { sessionId },

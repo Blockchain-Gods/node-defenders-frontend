@@ -24,6 +24,7 @@ const KNOWN_TYPES = new Set([
   "marketplace_open",
   "marketplace_buy",
   "marketplace_rent",
+  "beta_session_end",
 ]);
 
 function dispatch(type: string, data: unknown) {

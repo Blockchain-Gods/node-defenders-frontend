@@ -62,6 +62,7 @@ export function useGameSession() {
    */
   const recordEarn = useCallback((amount: string) => {
     const id = sessionIdRef.current;
+
     if (!id) return;
     earnSoul(id, amount).catch((err) => {
       devConsole.log(
@@ -82,7 +83,7 @@ export function useGameSession() {
 
       try {
         setStatus("ending");
-        devConsole.log("INFO", "session:end", { sessionId: id });
+        console.log("INFO", "session:end", { sessionId: id });
 
         const res = await endSession(id);
         setLastResult(res);

@@ -26,6 +26,8 @@ import DevConsole from "@/components/DevConsole";
 import { devConsole } from "@/lib/devConsole";
 import { attachBridgeReceiver, onBridgeEvent } from "@/lib/bridge/receiver";
 
+import PlayerSection from "@/components/dev/PlayerSection";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface SectionResult {
@@ -374,6 +376,7 @@ function AuthSection() {
     loading("guest");
     try {
       const res = await loginAsGuest();
+      console.log("[AuthSection] res: ", res);
       setAuth(res.token, res.playerId, res.wallet, "guest");
       ok("guest", res);
     } catch (e) {
@@ -458,6 +461,7 @@ function SessionSection() {
     if (!sessionId) return;
     loading("earn");
     try {
+      console.log("session_id: ", sessionId);
       const res = await earnSoul(sessionId, earnAmt);
       ok("earn", res);
     } catch (e) {
@@ -695,6 +699,7 @@ function BridgeSection() {
       "marketplace_open",
       "marketplace_buy",
       "marketplace_rent",
+      "beta_session_end",
     ];
     const unsubs = types.map((t) =>
       onBridgeEvent(t as any, (data) => {
@@ -815,6 +820,7 @@ function BridgeSection() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DevPage() {
+  const [purchaseCount, setPurchaseCount] = useState(0);
   // Block in production
   if (process.env.NEXT_PUBLIC_DEV_MODE !== "true") {
     redirect("/");
@@ -983,6 +989,7 @@ export default function DevPage() {
 
           {/* Sections */}
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <PlayerSection refreshTrigger={purchaseCount} />
             <AuthSection />
             <SessionSection />
             <SoulSection />

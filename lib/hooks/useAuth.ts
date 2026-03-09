@@ -22,8 +22,15 @@ import { getSoulBalance } from "@/lib/api/soul";
 import { devConsole } from "@/lib/devConsole";
 
 export function useAuth() {
-  const { jwt, playerId, wallet, authMethod, setAuth, clearAuth } =
-    useAuthStore();
+  const {
+    jwt,
+    playerId,
+    wallet,
+    authMethod,
+    setAuth,
+    clearAuth,
+    _hasHydrated,
+  } = useAuthStore();
   const [isInitialising, setIsInitialising] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +53,10 @@ export function useAuth() {
   }, [setAuth]);
 
   // On mount: validate stored token or create guest
+  // Wait for Zustand to rehydrate from localStorage before checking jwt
   useEffect(() => {
+    if (!_hasHydrated) return;
+
     let cancelled = false;
 
     const init = async () => {
@@ -85,7 +95,7 @@ export function useAuth() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run once on mount only
+  }, [_hasHydrated]); // Re-run once hydration completes
 
   // Listen for 401s from API client
   useEffect(() => {

@@ -21,6 +21,7 @@ interface AuthState {
   playerId: string | null;
   wallet: string | null;
   authMethod: AuthMethod | null;
+  _hasHydrated: boolean;
 
   // Actions
   setAuth: (
@@ -31,6 +32,7 @@ interface AuthState {
   ) => void;
   clearAuth: () => void;
   isAuthenticated: () => boolean;
+  setHasHydrated: (value: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -40,6 +42,7 @@ export const useAuthStore = create<AuthState>()(
       playerId: null,
       wallet: null,
       authMethod: null,
+      _hasHydrated: false,
 
       setAuth: (jwt, playerId, wallet, method) => {
         devConsole.log("AUTH", `setAuth:${method}`, {
@@ -59,6 +62,8 @@ export const useAuthStore = create<AuthState>()(
         const { jwt } = get();
         return !!jwt;
       },
+
+      setHasHydrated: (value) => set({ _hasHydrated: value }),
     }),
     {
       name: "nd_auth",
@@ -69,6 +74,9 @@ export const useAuthStore = create<AuthState>()(
         wallet: state.wallet,
         authMethod: state.authMethod,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     },
   ),
 );

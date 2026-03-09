@@ -10,9 +10,9 @@
  *   marketplace_rent     — player confirmed rent
  *
  * JS → UNITY (SendMessage via unityInstance):
- *   OnAuthReady          — JWT auth complete, send wallet + balance
+ *   OnAuthReady          — JWT auth complete, wallet + balance + owned items
  *   OnSessionStarted     — session created, send sessionId
- *   OnMarketplaceData    — listings response
+ *   OnMarketplaceData    — listings response (pre-resolved metadata)
  *   OnPurchaseResult     — buy/rent outcome
  */
 
@@ -48,8 +48,16 @@ export interface MarketplaceRentPayload {
   paymentToken: "SOUL" | "GODS";
 }
 
+// TODO: temporary — merge with GameplaySubmissionPayload once GameAnalyticsManager is refactored
+export interface BetaSessionEndPayload {
+  soul_earned: string;
+  rounds_survived: number;
+  enemies_killed: number;
+}
+
 export type UnityInboundEvent =
   | { type: "gameplay_submission"; data: GameplaySubmissionPayload }
+  | { type: "beta_session_end"; data: BetaSessionEndPayload } // TODO: merge with gameplay_submission
   | { type: "marketplace_open"; data: MarketplaceOpenPayload }
   | { type: "marketplace_buy"; data: MarketplaceBuyPayload }
   | { type: "marketplace_rent"; data: MarketplaceRentPayload };
@@ -60,6 +68,10 @@ export interface OnAuthReadyPayload {
   wallet: string;
   soulBalance: string;
   playerId: string;
+  /** typeIds the player permanently owns */
+  ownedTypeIds: number[];
+  /** typeIds the player currently has rented */
+  rentedTypeIds: number[];
 }
 
 export interface OnSessionStartedPayload {
