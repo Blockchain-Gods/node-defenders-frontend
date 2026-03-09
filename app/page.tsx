@@ -20,7 +20,7 @@ import DevConsole from "@/components/DevConsole";
 import { useUnityBridge } from "@/lib/hooks/useUnityBridge";
 import { devConsole } from "@/lib/devConsole";
 
-const BUILD_PATH = "/build";
+const BUILD_PATH = process.env.NEXT_PUBLIC_UNITY_BUILD_PATH || "/build";
 const DEV = process.env.NEXT_PUBLIC_DEV_MODE === "true";
 
 // ── Auth overlay ──────────────────────────────────────────────────────────────
