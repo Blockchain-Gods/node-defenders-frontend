@@ -69,7 +69,8 @@ export default function UnityGamePlayer({
       try {
         // Inject Unity loader script once
         const script = document.createElement("script");
-        script.src = `${buildPath}/Build/build.loader.js`;
+        // script.src = `${buildPath}/Build/build.loader.js`;
+        script.src = `${buildPath}/Build/build_web.loader.js`;
 
         await new Promise<void>((resolve, reject) => {
           script.onload = () => resolve();
