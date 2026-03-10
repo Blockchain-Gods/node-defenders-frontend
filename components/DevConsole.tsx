@@ -32,6 +32,8 @@ const BADGE: Record<
   INFO: { label: "INFO", color: "#94a3b8", bg: "rgba(148,163,184,0.10)" },
 };
 
+const PANEL_WIDTH = 440;
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function Badge({ direction }: { direction: LogDirection }) {
@@ -281,7 +283,7 @@ function MockButtons() {
             transition: "background 0.1s",
           }}
           onMouseEnter={(e) =>
-            (e.currentTarget.style.background = `${b.color}18`)
+            (e.currentTarget.style.background = `${b.color}15`)
           }
           onMouseLeave={(e) =>
             (e.currentTarget.style.background = "transparent")
@@ -301,9 +303,18 @@ export default function DevConsole() {
   const [entries, setEntries] = useState<LogEntry[]>([]);
   const [filter, setFilter] = useState<LogDirection | "ALL">("ALL");
   const [paused, setPaused] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pausedRef = useRef(false);
   pausedRef.current = paused;
+
+  // Detect mobile
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < PANEL_WIDTH + 20);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // Init devConsole on mount
   useEffect(() => {
@@ -342,46 +353,56 @@ export default function DevConsole() {
     "ERROR",
   ];
 
+  // On mobile: panel takes full screen width, tab stays visible at top-right
+  const panelWidth = isMobile ? "100vw" : `${PANEL_WIDTH}px`;
+  const tabRight = open
+    ? isMobile
+      ? 0 // on mobile, close button is inside header — tab hidden when open
+      : PANEL_WIDTH
+    : 0;
+
   if (process.env.NEXT_PUBLIC_DEV_MODE !== "true") return null;
 
   return (
     <>
-      {/* Persistent tab */}
-      <button
-        onClick={() => setOpen((o) => !o)}
-        style={{
-          position: "fixed",
-          right: open ? 440 : 0,
-          top: "50%",
-          transform: "translateY(-50%) rotate(0deg)",
-          zIndex: 9999,
-          background: "rgba(10,14,20,0.95)",
-          border: "1px solid rgba(0,212,255,0.3)",
-          borderRight: open ? "1px solid rgba(0,212,255,0.3)" : "none",
-          color: "#00d4ff",
-          padding: "12px 6px",
-          borderRadius: open ? "6px 0 0 6px" : "6px 0 0 6px",
-          cursor: "pointer",
-          fontSize: 10,
-          fontFamily: "monospace",
-          letterSpacing: "0.12em",
-          writingMode: "vertical-rl",
-          transition: "right 0.25s cubic-bezier(0.4,0,0.2,1)",
-          boxShadow: "-2px 0 12px rgba(0,212,255,0.08)",
-        }}
-        title="Toggle Dev Console (Ctrl+Shift+D)"
-      >
-        {open ? "CLOSE" : "DEV"}
-      </button>
+      {/* Persistent tab — hidden on mobile when panel is open (header has close button) */}
+      {(!open || !isMobile) && (
+        <button
+          onClick={() => setOpen((o) => !o)}
+          style={{
+            position: "fixed",
+            right: tabRight,
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 9999,
+            background: "rgba(10,14,20,0.95)",
+            border: "1px solid rgba(0,212,255,0.3)",
+            borderRight: open ? "1px solid rgba(0,212,255,0.3)" : "none",
+            color: "#00d4ff",
+            padding: "12px 6px",
+            borderRadius: "6px 0 0 6px",
+            cursor: "pointer",
+            fontSize: 10,
+            fontFamily: "monospace",
+            letterSpacing: "0.12em",
+            writingMode: "vertical-rl",
+            transition: "right 0.25s cubic-bezier(0.4,0,0.2,1)",
+            boxShadow: "-2px 0 12px rgba(0,212,255,0.08)",
+          }}
+          title="Toggle Dev Console (Ctrl+Shift+D)"
+        >
+          DEV
+        </button>
+      )}
 
       {/* Panel */}
       <div
         style={{
           position: "fixed",
-          right: open ? 0 : -440,
+          right: open ? 0 : `calc(-1 * ${panelWidth})`,
           top: 0,
           bottom: 0,
-          width: 440,
+          width: panelWidth,
           zIndex: 9998,
           background: "rgba(8,12,18,0.97)",
           borderLeft: "1px solid rgba(0,212,255,0.15)",
@@ -460,6 +481,23 @@ export default function DevConsole() {
                 }}
               >
                 CLEAR
+              </button>
+              {/* Close button — always visible in header, especially important on mobile */}
+              <button
+                onClick={() => setOpen(false)}
+                style={{
+                  background: "transparent",
+                  border: "1px solid rgba(255,68,68,0.3)",
+                  color: "#ff4444",
+                  borderRadius: 3,
+                  padding: "2px 8px",
+                  fontSize: 9,
+                  cursor: "pointer",
+                  fontFamily: "monospace",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                ✕ CLOSE
               </button>
             </div>
           </div>

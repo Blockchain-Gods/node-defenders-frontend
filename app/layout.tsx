@@ -12,9 +12,30 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
+export const metadata = {
   title: "Node Defenders",
-  description: "Frontend wrapper for Unity",
+  description: "A cyberpunk tower defense game. Built on-chain.",
+  openGraph: {
+    title: "Node Defenders",
+    description: "A cyberpunk tower defense game. Built on-chain.",
+    url: "https://defenders.blockchaingods.io",
+    siteName: "Blockchain Gods",
+    images: [
+      {
+        url: "https://cdn.blockchaingods.io/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Node Defenders",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Node Defenders",
+    description: "A cyberpunk tower defense game. Built on-chain.",
+    images: ["https://cdn.blockchaingods.io/og-image.png"],
+  },
 };
 
 export default function RootLayout({
